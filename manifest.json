@@ -13,7 +13,7 @@
   "content_scripts": [
     {
       "matches": ["*://www.nytimes.com/games/pips/*"],
-      "js": ["content.js"]
+      "js": ["solverScript.js"]
     }
   ]
 }
