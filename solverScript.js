@@ -1,5 +1,6 @@
 function main() {
   const puzzleInfo = extractPuzzleInfo();
+  console.log(puzzleInfo)
   const solution = solvePuzzle(puzzleInfo);
 
   return {
@@ -11,7 +12,7 @@ function main() {
 // Extract the board DOM element
 function extractPuzzleInfo() {
   console.log("Extracting Board Info...");
-  const board = document.querySelector(".Board-module_boardContainer__vvItv");
+  const board = document.querySelector("[class*='boardContainer']");
 
   const puzzleInfo = {
     boardFound: !!board,
@@ -51,23 +52,24 @@ function getBoardSize(board) {
 function getDominoes() {
   console.log("Getting dominoes...");
   const dominoes = [];
-  const dominoNodes = document.querySelectorAll(".Domino-module_domino__yiFAO");
+  const dominoNodes = document.querySelectorAll("[class*='Domino'][class*='domino']");
   dominoNodes.forEach(domino => {
-    const halves = [...domino.querySelectorAll(".Domino-module_halfDomino__cvxyV")];
-    const pair = halves.map(h => h.querySelectorAll(".Domino-module_dot__QVHhw").length);
+    const halves = [...domino.querySelectorAll("[class*='halfDomino']")];
+    const pair = halves.map(h => h.querySelectorAll("[class*='dot']").length - 1);
     dominoes.push(pair);
   });
   return dominoes;
 }
 
 function getPlayableCells(board, cols) {
-  const dropWrapper = board.querySelector(".Board-module_droppableWrapper__iaurT");
+  const dropWrapper = board.querySelector("[class*='droppableWrapper'], [class*='eWrapper']");
   const droppable = dropWrapper
-    ? [...dropWrapper.querySelectorAll("div[class*='droppableCell']")]
+    ? [...dropWrapper.querySelectorAll("[class*='droppableCell']")]
     : [];
   const droppableMap = droppable.map((cell, index) => ({
     index: index,
-    playable: !cell.classList.contains("Board-module_hidden__kZj8y")
+    playable: !cell.classList.contains("Board-module_hidden__DkSxz") && 
+              ![...cell.classList].some(c => c.includes('hidden'))
   }));
   return {playableCells: droppableMap
     .filter(cell => cell.playable)
@@ -80,13 +82,26 @@ function getPlayableCells(board, cols) {
   droppableMap: droppableMap};
 }
 
-function extractColorName(colourClass) {
-  const m = colourClass.toString().match(/^RegionCell-module_([a-zA-Z]+)__/);
-  return m ? m[1] : null;
+function extractColorName(classList) {
+  // Look for color-related class names
+  const colorPatterns = [
+    /teal/i, /orange/i, /pink/i, /blue/i, /green/i, 
+    /yellow/i, /purple/i, /red/i, /cyan/i, /lime/i
+  ];
+  
+  for (const cls of classList) {
+    for (const pattern of colorPatterns) {
+      if (pattern.test(cls)) {
+        const match = cls.match(pattern);
+        return match[0].toLowerCase();
+      }
+    }
+  }
+  return null;
 }
 
 function getRuleFromDiv(outerCell) {
-  const labelText = outerCell.querySelector(".RegionCell-module_regionLabelText__dRGOB");
+  const labelText = outerCell.querySelector("[class*='regionLabelText']");
   if (!labelText) return null;
 
   const raw = labelText.textContent.trim();
@@ -95,11 +110,11 @@ function getRuleFromDiv(outerCell) {
     return { type: "sum", value: Number(raw) };
   }
 
-  const symbol = labelText.querySelector("span[class*='RegionCell-module_regionLabelSymbol']");
+  const symbol = labelText.querySelector("[class*='regionLabelSymbol']");
   if (symbol) {
     const classList = [...symbol.classList];
 
-    if (classList.some(c => c.includes("notEqual"))) {
+    if (classList.some(c => c.includes("notEqual") || c.includes("not-equal"))) {
       return { type: "notEqual" };
     }
     if (classList.some(c => c.includes("equal"))) {
@@ -181,9 +196,9 @@ function buildRegionsWithConnectivity(cells) {
 }
 
 function getRegions(board, droppableMap, cols) {
-  const regionWrapper = board.querySelector(".Board-module_regionWrapper__I4HgR");
+  const regionWrapper = board.querySelector("[class*='regionWrapper']");
   const regionNodes = regionWrapper
-    ? [...regionWrapper.querySelectorAll("div[class*='regionCell']")]
+    ? [...regionWrapper.querySelectorAll("[class*='regionCell']")]
     : [];
 
   let index = 0;
@@ -216,16 +231,17 @@ function getRegions(board, droppableMap, cols) {
       continue;
     }
 
-    const isInner = div.classList.contains("RegionCell-module_regionCellInner__lFLCx");
+    const classList = [...div.classList];
+    const isInner = classList.some(c => c.includes("regionCellInner"));
     if (isInner) {
-      const colour = extractColorName(div.classList[1]);
+      const colour = extractColorName(classList);
       cell.colour = colour;
       index++;
       cellIndex++;
       continue;
     }
     
-    const isHidden = div.classList.contains("RegionCell-module_hidden__N_pYa"); 
+    const isHidden = classList.some(c => c.includes("hidden"));
     if (isHidden) { 
       index++; 
       cellIndex++;
